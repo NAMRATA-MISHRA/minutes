@@ -1,0 +1,116 @@
+.page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1rem 3rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.card {
+  border: 1px solid #d8d8d8;
+  border-radius: 12px;
+  padding: 1rem;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  text-align: left;
+}
+
+.subtitle {
+  margin-top: 0;
+  color: #616161;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+button,
+.file-input {
+  border: 1px solid #c9c9c9;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  background: #f6f7f9;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.file-input input {
+  display: none;
+}
+
+.danger {
+  background: #ffe6e6;
+  border-color: #ffadad;
+}
+
+.meta {
+  color: #5f6368;
+  margin-top: 0.35rem;
+}
+
+.error {
+  margin-top: 0.75rem;
+  color: #d22;
+}
+
+.audio-player {
+  margin-top: 0.75rem;
+  width: 100%;
+}
+
+textarea,
+input {
+  width: 100%;
+  margin-top: 0.35rem;
+  border-radius: 8px;
+  border: 1px solid #d2d2d2;
+  padding: 0.6rem;
+  box-sizing: border-box;
+  font: inherit;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.notes-grid {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 0.9rem;
+}
+
+label {
+  font-weight: 600;
+  color: #2b2b2b;
+}
+
+.history-list {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  background: #fff;
+}
+
+.history-item span {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
