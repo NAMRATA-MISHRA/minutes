@@ -1,0 +1,2 @@
+# Render (and other hosts) often build from the repo root. Delegate to backend deps.
+-r backend/requirements.txt

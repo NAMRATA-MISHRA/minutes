@@ -110,58 +110,52 @@ async def summarize_chunks(client: genai.Client, model: str, chunks: list[str]) 
     return "\n".join(partials)
 
 
-def _minutes_json_schema() -> dict[str, Any]:
-    """JSON Schema for Gemini structured output (matches MeetingMinutes)."""
-    return {
-        "type": "object",
-        "properties": {
-            "title": {"type": "string"},
-            "summary": {"type": "string"},
-            "key_points": {"type": "array", "items": {"type": "string"}},
-            "decisions": {"type": "array", "items": {"type": "string"}},
-            "action_items": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "task": {"type": "string"},
-                        "owner": {"type": "string"},
-                        "deadline": {"type": "string"},
-                    },
-                    "required": ["task", "owner", "deadline"],
-                },
-            },
-        },
-        "required": ["title", "summary", "key_points", "decisions", "action_items"],
-    }
+def _parse_meeting_minutes_json(payload: str) -> MeetingMinutes:
+    """Parse model output into MeetingMinutes (handles fences / minor formatting)."""
+    text = payload.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*```\s*$", "", text)
+    text = text.strip()
+    try:
+        data: Any = json.loads(text)
+    except json.JSONDecodeError:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start >= 0 and end > start:
+            data = json.loads(text[start : end + 1])
+        else:
+            raise
+    return MeetingMinutes.model_validate(data)
 
 
 async def generate_minutes(client: genai.Client, model: str, transcript_text: str) -> MeetingMinutes:
-    schema = _minutes_json_schema()
+    # Do not use response_json_schema here: Gemini often returns 500 INTERNAL
+    # "Failed to convert server response to JSON" when server-side schema coercion fails.
+    # application/json + prompt + Pydantic validation is more reliable across models.
     response = await client.aio.models.generate_content(
         model=model,
         contents=(
-            "Convert this transcript into structured meeting minutes. "
-            "Extract action items; use empty string for owner or deadline if not stated. "
-            "Keep the output concise and professional.\n\n"
+            "Convert this transcript into structured meeting minutes.\n"
+            "Return one JSON object only (no markdown, no code fences) with exactly these keys:\n"
+            '- "title": string\n'
+            '- "summary": string\n'
+            '- "key_points": array of strings\n'
+            '- "decisions": array of strings\n'
+            '- "action_items": array of objects, each with "task", "owner", "deadline" (all strings; '
+            'use "" if unknown)\n\n'
+            "Be concise and professional. Do not invent facts.\n\n"
             f"Transcript:\n{transcript_text}"
         ),
         config=types.GenerateContentConfig(
             system_instruction=(
-                "You are an expert meeting assistant. You output only valid JSON that matches "
-                "the requested schema."
+                "You are an expert meeting assistant. You only output valid JSON for the user request."
             ),
             response_mime_type="application/json",
-            response_json_schema=schema,
             temperature=0.3,
         ),
     )
-    payload = _text_from_response(response)
-    try:
-        parsed = json.loads(payload)
-    except json.JSONDecodeError:
-        parsed = json.loads(payload.strip().removeprefix("```json").removesuffix("```").strip())
-    return MeetingMinutes.model_validate(parsed)
+    return _parse_meeting_minutes_json(_text_from_response(response))
 
 
 def ensure_upload_dir(upload_dir: str) -> None:
