@@ -24,12 +24,21 @@ def _gemini_api_key() -> str:
     return _env_str("GEMINI_API_KEY") or _env_str("GOOGLE_API_KEY")
 
 
+def _path_under_backend(env_name: str, default: str) -> str:
+    """Resolve relative paths against backend/ so the API works when cwd is the repo root (e.g. Render)."""
+    raw = _env_str(env_name, default)
+    p = Path(raw)
+    if p.is_absolute():
+        return str(p.resolve())
+    return str((_BACKEND_ROOT / p).resolve())
+
+
 @dataclass(frozen=True)
 class Settings:
     gemini_api_key: str = field(default_factory=_gemini_api_key)
     gemini_model: str = field(default_factory=lambda: _env_str("GEMINI_MODEL", "gemini-2.0-flash"))
-    upload_dir: str = field(default_factory=lambda: _env_str("UPLOAD_DIR", "uploads"))
-    database_path: str = field(default_factory=lambda: _env_str("DATABASE_PATH", "meetings.db"))
+    upload_dir: str = field(default_factory=lambda: _path_under_backend("UPLOAD_DIR", "uploads"))
+    database_path: str = field(default_factory=lambda: _path_under_backend("DATABASE_PATH", "meetings.db"))
 
 
 settings = Settings()

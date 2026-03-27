@@ -29,12 +29,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.on_event("startup")
-async def on_startup() -> None:
-    ensure_upload_dir(settings.upload_dir)
-    initialize_db(settings.database_path)
-
+# Before StaticFiles mount: directory must exist; paths are absolute under backend/ (see config).
+ensure_upload_dir(settings.upload_dir)
+initialize_db(settings.database_path)
 
 app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
 

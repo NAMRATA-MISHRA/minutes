@@ -137,3 +137,27 @@ npm run dev
 4. Transcript and notes are displayed and editable.
 5. Meeting is saved automatically and appears in History.
 6. Export minutes as JSON.
+
+## Deploy on Render (backend)
+
+If the build says `No such file or directory: 'requirements.txt'`, Render is building from the **repo root** while your dependencies live in **`backend/`**. This repo includes a **root `requirements.txt`** that pulls in `backend/requirements.txt`, so `pip install -r requirements.txt` works from the root.
+
+**Recommended settings**
+
+- **Root Directory:** `backend`
+- **Build Command:** `pip install -r requirements.txt`
+- **Start Command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- **Environment:** set `GEMINI_API_KEY`, and optionally `GEMINI_MODEL`, `UPLOAD_DIR`, `DATABASE_PATH` (see [Backend Setup](#backend-setup)).
+
+If you **leave Root Directory empty** (build + run from repo root), use:
+
+- **Build Command:** `pip install -r requirements.txt` (uses the root file)
+- **Start Command:** `uvicorn server:app --host 0.0.0.0 --port $PORT`
+
+(`server.py` at the repo root adds `backend/` to `sys.path` and exposes the same FastAPI `app`.)
+
+Alternative start (same effect): `PYTHONPATH=backend uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+
+Optional: add this repo as a **Blueprint** using `render.yaml` at the repo root (set `GEMINI_API_KEY` in the dashboard when prompted).
+
+Pin Python with root `runtime.txt` (e.g. `3.12.7`) so Render does not default to a very new Python that may be incompatible with some packages.
