@@ -130,28 +130,27 @@ def _parse_meeting_minutes_json(payload: str) -> MeetingMinutes:
 
 
 async def generate_minutes(client: genai.Client, model: str, transcript_text: str) -> MeetingMinutes:
-    # Do not use response_json_schema here: Gemini often returns 500 INTERNAL
-    # "Failed to convert server response to JSON" when server-side schema coercion fails.
-    # application/json + prompt + Pydantic validation is more reliable across models.
+    # Do not set response_mime_type or response_json_schema: Gemini can return 500 INTERNAL
+    # "Failed to convert server response to JSON" when its server-side JSON mode fails.
+    # Plain text + client-side JSON parse is the reliable path.
     response = await client.aio.models.generate_content(
         model=model,
         contents=(
             "Convert this transcript into structured meeting minutes.\n"
-            "Return one JSON object only (no markdown, no code fences) with exactly these keys:\n"
+            "Reply with ONE raw JSON object only. No markdown, no ``` fences, no commentary before or after.\n"
+            "Use exactly these keys:\n"
             '- "title": string\n'
             '- "summary": string\n'
             '- "key_points": array of strings\n'
             '- "decisions": array of strings\n'
-            '- "action_items": array of objects, each with "task", "owner", "deadline" (all strings; '
-            'use "" if unknown)\n\n'
+            '- "action_items": array of objects with "task", "owner", "deadline" (strings; use "" if unknown)\n\n'
             "Be concise and professional. Do not invent facts.\n\n"
             f"Transcript:\n{transcript_text}"
         ),
         config=types.GenerateContentConfig(
             system_instruction=(
-                "You are an expert meeting assistant. You only output valid JSON for the user request."
+                "You are an expert meeting assistant. Output only a single JSON object, valid UTF-8, parseable by json.loads."
             ),
-            response_mime_type="application/json",
             temperature=0.3,
         ),
     )
