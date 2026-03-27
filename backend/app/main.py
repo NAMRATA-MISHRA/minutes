@@ -4,7 +4,8 @@ from typing import Annotated
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from openai import AsyncOpenAI
+from google import genai
+from google.genai import errors as genai_errors
 
 from app.config import settings
 from app.models import GenerateNotesResponse
@@ -40,7 +41,11 @@ app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads"
 
 @app.get("/health")
 async def health_check() -> dict:
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "gemini_configured": bool(settings.gemini_api_key),
+        "gemini_model": settings.gemini_model if settings.gemini_api_key else None,
+    }
 
 
 @app.post("/upload-audio")
@@ -65,8 +70,15 @@ async def generate_notes(
     file: Annotated[UploadFile | None, File()] = None,
     file_url: Annotated[str | None, Form()] = None,
 ) -> GenerateNotesResponse:
-    if not settings.openai_api_key:
-        raise HTTPException(status_code=500, detail="Missing OPENAI_API_KEY in environment")
+    api_key = settings.gemini_api_key
+    if not api_key:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Missing GEMINI_API_KEY (or GOOGLE_API_KEY). Add it to backend/.env (or repo-root .env) "
+                "and restart the server. See backend/.env.example."
+            ),
+        )
 
     ensure_upload_dir(settings.upload_dir)
     audio_path: str | None = None
@@ -89,13 +101,27 @@ async def generate_notes(
             detail="Provide a valid file upload or local file_url from /upload-audio",
         )
 
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
+    client = genai.Client(api_key=api_key)
+    model = settings.gemini_model
 
-    raw_transcript = await transcribe_audio(client, audio_path)
-    cleaned_transcript = clean_transcript(raw_transcript)
-    chunks = chunk_text(cleaned_transcript)
-    normalized_transcript = await summarize_chunks(client, settings.openai_model, chunks)
-    notes = await generate_minutes(client, settings.openai_model, normalized_transcript)
+    try:
+        raw_transcript = await transcribe_audio(client, model, audio_path)
+        cleaned_transcript = clean_transcript(raw_transcript)
+        chunks = chunk_text(cleaned_transcript)
+        normalized_transcript = await summarize_chunks(client, model, chunks)
+        notes = await generate_minutes(client, model, normalized_transcript)
+    except genai_errors.ClientError as exc:
+        msg = str(exc)
+        code = 401 if any(s in msg for s in ("401", "UNAUTHENTICATED", "API key", "API_KEY")) else 400
+        raise HTTPException(status_code=code, detail=f"Gemini client error: {exc}") from exc
+    except genai_errors.ServerError as exc:
+        raise HTTPException(status_code=502, detail=f"Gemini server error: {exc}") from exc
+    except genai_errors.APIError as exc:
+        raise HTTPException(status_code=502, detail=f"Gemini API error: {exc}") from exc
+    except TimeoutError as exc:
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     saved = save_meeting(
         settings.database_path,

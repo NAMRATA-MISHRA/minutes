@@ -32,7 +32,16 @@ export async function generateNotes({ file, fileUrl }) {
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
-    throw new Error(body.detail || 'Failed to generate notes')
+    const detail = body.detail
+    const message =
+      typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((e) => e.msg || JSON.stringify(e)).join('; ')
+          : detail
+            ? JSON.stringify(detail)
+            : 'Failed to generate notes'
+    throw new Error(message)
   }
 
   return response.json()

@@ -1,6 +1,6 @@
 # Meeting Minutes AI
 
-Meeting Minutes AI is a full-stack application that records or uploads meeting audio, transcribes it with OpenAI Whisper, and generates structured meeting minutes using GPT.
+Meeting Minutes AI is a full-stack application that records or uploads meeting audio, transcribes it with **Google Gemini** (multimodal audio), and generates structured meeting minutes with **Gemini** JSON output.
 
 ## Features
 
@@ -22,9 +22,9 @@ Meeting Minutes AI is a full-stack application that records or uploads meeting a
 
 - Backend: FastAPI (Python)
 - Frontend: React + Vite
-- AI:
-  - Whisper (`whisper-1`) for transcription
-  - GPT model (`OPENAI_MODEL`, default `gpt-4o-mini`) for minute generation
+- AI (Google Gemini API):
+  - Audio upload via Gemini Files API + transcription prompt
+  - Structured minutes via Gemini `response_json_schema` (`application/json`)
 - Storage: SQLite
 
 ## Project Structure
@@ -69,10 +69,10 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Set values in `.env`:
+Set values in `.env` (file must live in **`backend/.env`** or at the **repo root** so the server can find it even if you start `uvicorn` from another directory):
 
-- `OPENAI_API_KEY`: your OpenAI API key
-- `OPENAI_MODEL`: model for summary/notes generation
+- `GEMINI_API_KEY`: your key from [Google AI Studio](https://aistudio.google.com/apikey) (or set `GOOGLE_API_KEY` instead)
+- `GEMINI_MODEL`: model id (default `gemini-2.0-flash`; pick a model that supports audio in your project)
 - `UPLOAD_DIR`: upload directory (default `uploads`)
 - `DATABASE_PATH`: SQLite file path (default `meetings.db`)
 
@@ -81,6 +81,8 @@ Set values in `.env`:
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
+
+Quick check: open `http://localhost:8000/health` — `gemini_configured` should be `true` when the key is loaded.
 
 ## Frontend Setup
 
@@ -116,9 +118,9 @@ npm run dev
 - `POST /generate-notes`
   - form-data: `file` or `file_url`
   - flow:
-    1. Whisper transcription
-    2. transcript cleanup + optional chunk normalization
-    3. GPT structured minutes generation
+    1. Upload audio to Gemini Files API and transcribe
+    2. transcript cleanup + optional chunk normalization (Gemini)
+    3. structured meeting minutes (Gemini JSON schema)
     4. save transcript/notes to SQLite
 
 - `GET /meetings?limit=50`
